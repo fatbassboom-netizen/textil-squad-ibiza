@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Textil Squad Ibiza - Gestor de Pedidos</title>
+    <link rel="stylesheet" href="style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <header class="main-header">
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="eyeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <!-- Pyramid -->
+                        <path d="M50 20L85 80H15L50 20Z" stroke="url(#eyeGradient)" stroke-width="2"
+                            stroke-linejoin="round" />
+                        <path d="M50 20V80" stroke="url(#eyeGradient)" stroke-width="1" opacity="0.3" />
+                        <!-- Eye Circle -->
+                        <circle cx="50" cy="45" r="12" stroke="url(#eyeGradient)" stroke-width="1.5"
+                            stroke-dasharray="2 2" />
+                        <!-- Pupil -->
+                        <circle cx="50" cy="45" r="4" fill="url(#eyeGradient)" />
+                        <!-- Radiating lines -->
+                        <path d="M50 10V15" stroke="url(#eyeGradient)" stroke-width="1" stroke-linecap="round" />
+                        <path d="M75 25L70 30" stroke="url(#eyeGradient)" stroke-width="1" stroke-linecap="round" />
+                        <path d="M25 25L30 30" stroke="url(#eyeGradient)" stroke-width="1" stroke-linecap="round" />
+                    </svg>
+                </div>
+                <div class="logo-text">
+                    <span class="brand-top">Textil Squad</span>
+                    <span class="brand-bottom">Ibiza</span>
+                </div>
+            </div>
+            <p class="header-subtitle">Gestión de Stock & Pedidos</p>
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
+                <button id="manageProductsBtn" class="btn btn-sm btn-secondary">
+                    <i class="fas fa-plus"></i> Añadir Producto
+                </button>
+                <button id="configFirebaseBtn" class="btn btn-sm btn-secondary">
+                    <i class="fas fa-cloud"></i> Configurar Nube
+                </button>
+                <button onclick="window.seedDatabase()" class="btn btn-sm btn-secondary">
+                    <i class="fas fa-sync-alt"></i> Sincronizar Cloud
+                </button>
+                <button id="openCalcBtn" class="btn btn-sm btn-secondary">
+                    <i class="fas fa-calculator"></i> Calculadora
+                </button>
+            </div>
+        </header>
+
+        <main class="content-grid">
+            <section class="products-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-tshirt"></i> Catálogo</h2>
+                    <div class="header-controls">
+                        <div class="search-bar">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="searchInput" placeholder="Buscar productos...">
+                        </div>
+                        <div class="sort-container">
+                            <i class="fas fa-sort-amount-down"></i>
+                            <select id="sortSelect">
+                                <option value="date-desc">Recientes</option>
+                                <option value="name-asc">Nombre (A-Z)</option>
+                                <option value="name-desc">Nombre (Z-A)</option>
+                                <option value="price-asc">Precio (Menor)</option>
+                                <option value="price-desc">Precio (Mayor)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div id="productList" class="product-grid">
+                    <!-- Products will be injected here -->
+                </div>
+            </section>
+
+            <section class="order-section">
+                <div class="order-card">
+                    <div class="section-header">
+                        <h2><i class="fas fa-shopping-cart"></i> Tu Pedido</h2>
+                        <span id="itemCount" class="badge">0 items</span>
+                    </div>
+
+                    <div id="cartItems" class="cart-items">
+                        <div class="empty-state">
+                            <i class="fas fa-basket-shopping"></i>
+                            <p>Tu pedido está vacío</p>
+                            <small>Añade artículos del catálogo para empezar</small>
+                        </div>
+                        <!-- Cart items will be injected here -->
+                    </div>
+
+                    <div class="order-summary">
+                        <div class="summary-row">
+                            <span>Subtotal</span>
+                            <span id="subtotalAmount">0.00€</span>
+                        </div>
+
+                        <div id="taxRow" class="summary-row tax-row hidden">
+                            <span>IVA (21%)</span>
+                            <span id="taxAmount">0.00€</span>
+                        </div>
+
+                        <div class="summary-row total">
+                            <span>Total</span>
+                            <span id="totalAmount">0.00€</span>
+                        </div>
+
+                        <div class="actions">
+                            <button id="toggleTaxBtn" class="btn btn-secondary">
+                                <i class="fas fa-percent"></i> Mostrar IVA
+                            </button>
+                            <button id="saveProgressBtn" class="btn btn-secondary">
+                                <i class="fas fa-save"></i> Guardar
+                            </button>
+                            <button id="clearCartBtn" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Vaciar
+                            </button>
+                        </div>
+
+                        <div class="actions">
+                            <button id="printOrderBtn" class="btn btn-secondary btn-block">
+                                <i class="fas fa-print"></i> Imprimir Pedido
+                            </button>
+                        </div>
+
+                        <div class="notes-container">
+                            <label for="orderNotes"><i class="fas fa-sticky-note"></i> Notas del Pedido</label>
+                            <textarea id="orderNotes"
+                                placeholder="Escribe aquí cualquier indicación especial..."></textarea>
+                        </div>
+
+                        <button id="checkoutBtn" class="btn btn-primary btn-block">
+                            <i class="fas fa-check-circle"></i> Finalizar Pedido
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Product Modal -->
+    <div id="productModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Añadir Producto</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="productForm" onsubmit="return false;">
+                <input type="hidden" id="productId">
+                <div class="form-group">
+                    <label style="color: var(--accent); font-weight: bold;">Precio (€) - Escribe aquí:</label>
+                    <input type="text" id="final_price_input" placeholder="Ej: 10.50"
+                        style="background: #ffffff !important; color: #000000 !important; font-size: 1.2rem; padding: 12px; border: 2px solid var(--accent); position: relative; z-index: 10000; pointer-events: auto !important;">
+                </div>
+                <div class="form-group">
+                    <label>Nombre del Producto</label>
+                    <input type="text" id="productName" required>
+                </div>
+                <div class="form-group">
+                    <label>Stock (Cantidad Disponible)</label>
+                    <input type="number" id="productStock" min="0" required value="0">
+                </div>
+                <div class="form-group">
+                    <label>URL Imagen (Opcional)</label>
+                    <input type="text" id="productImage" placeholder="https://... o assets/foto.jpg">
+                    <div id="modalImagePreview" class="modal-image-preview hidden">
+                        <img src="" alt="Vista previa">
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button id="deleteProductBtn" type="button" class="btn btn-danger hidden"
+                        style="margin-right: auto;">
+                        <i class="fas fa-trash"></i> Borrar
+                    </button>
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="window.handleProductSubmit()">GUARDAR
+                        DATOS</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase Config Modal -->
+    <div id="firebaseModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Configuración Firebase</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <form id="firebaseForm">
+                <p style="margin-bottom: 15px; font-size: 0.9rem; color: #aaa;">Introduce los datos de tu proyecto
+                    Firebase para sincronizar el stock.</p>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="text" id="fbApiKey" required>
+                </div>
+                <div class="form-group">
+                    <label>Auth Domain</label>
+                    <input type="text" id="fbAuthDomain" required>
+                </div>
+                <div class="form-group">
+                    <label>Project ID</label>
+                    <input type="text" id="fbProjectId" required>
+                </div>
+                <div class="form-group">
+                    <label>Storage Bucket</label>
+                    <input type="text" id="fbStorageBucket">
+                </div>
+                <div class="form-group">
+                    <label>Messaging Sender ID</label>
+                    <input type="text" id="fbMessagingSenderId">
+                </div>
+                <div class="form-group">
+                    <label>App ID</label>
+                    <input type="text" id="fbAppId" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar y Conectar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Photo Modal -->
+    <div id="photoModal" class="modal hidden">
+        <div class="modal-content photo-modal-content" style="max-width: 800px; padding: 10px;">
+            <div class="modal-header">
+                <button class="close-modal">&times;</button>
+            </div>
+            <img id="photoFull" src="" alt="Producto" style="width: 100%; height: auto; border-radius: 8px;">
+        </div>
+    </div>
+
+    <!-- Calculator Modal -->
+    <div id="calcModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 320px;">
+            <div class="modal-header">
+                <h2>Calculadora</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="calculator-body">
+                <input type="text" id="calcDisplay" readonly class="calc-display"
+                    style="width: 100%; font-size: 2.5rem; text-align: right; padding: 15px; margin-bottom: 15px; background: #ffffff; border: 2px solid var(--accent); color: var(--primary); border-radius: 8px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);">
+                <div class="calc-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                    <button onclick="window.calcClear()" class="btn btn-secondary">C</button>
+                    <button onclick="window.calcOp('/')" class="btn btn-secondary">/</button>
+                    <button onclick="window.calcOp('*')" class="btn btn-secondary">*</button>
+                    <button onclick="window.calcBackspace()" class="btn btn-secondary">⌫</button>
+                    <button class="btn btn-secondary" onclick="window.calcNum('7')">7</button>
+                    <button class="btn btn-secondary" onclick="window.calcNum('8')">8</button>
+                    <button class="btn btn-secondary" onclick="window.calcNum('9')">9</button>
+                    <button onclick="window.calcOp('-')" class="btn btn-secondary">-</button>
+                    <button class="btn btn-secondary" onclick="window.calcNum('4')">4</button>
+                    <button class="btn btn-secondary" onclick="window.calcNum('5')">5</button>
+                    <button class="btn btn-secondary" onclick="window.calcNum('6')">6</button>
+                    <button onclick="window.calcOp('+')" class="btn btn-secondary">+</button>
+                    <button class="btn btn-secondary" onclick="window.calcNum('1')">1</button>
+                    <button class="btn btn-secondary" onclick="window.calcNum('2')">2</button>
+                    <button class="btn btn-secondary" onclick="window.calcNum('3')">3</button>
+                    <button onclick="window.calcEqual()" class="btn btn-primary" style="grid-row: span 2;">=</button>
+                    <button class="btn btn-secondary" onclick="window.calcNum('0')"
+                        style="grid-column: span 2;">0</button>
+                    <button class="btn btn-secondary" onclick="window.calcNum('.')">.</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Visor 3D -->
+    <div id="view3DModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="view-3d-header">
+                <h2 id="view3DTitle">Visualización 3D</h2>
+                <button class="close-modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="view-3d-container" id="view3DContainer">
+                <div class="product-3d-object auto-rotate" id="product3DObject">
+                    <div class="product-3d-face-depth"></div>
+                    <div class="product-3d-face front" id="faceFront"></div>
+                    <div class="product-3d-face back" id="faceBack"></div>
+                </div>
+            </div>
+            <div class="view-3d-controls">
+                <div class="control-hint">
+                    <i class="fas fa-mouse-pointer"></i> Arrastra para rotar
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debug Log Container (Hidden by default, used for diagnostics) -->
+    <div id="debugLog"
+        style="position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; font-family: monospace; font-size: 10px; max-height: 100px; overflow-y: auto; z-index: 99999; border-radius: 5px; width: 250px; display: none;">
+        <div>Debug Log Iniciado...</div>
+    </div>
+
+    <!-- Firebase SDKs (Compat for file:// support) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <!-- Main App Script with cache bust -->
+    <script src="app.js?v=reconstruct_v2"></script>
+</body>
+
+</html>
