@@ -1,5 +1,5 @@
 /* ==========================================================
-   TEXTIL SQUAD IBIZA - SISTEMA COMPLETO RESTAURADO
+   TEXTIL SQUAD IBIZA - SISTEMA MAESTRO FINAL
    ========================================================== */
 
 const firebaseConfig = {
@@ -12,45 +12,58 @@ const firebaseConfig = {
     measurementId: "G-V5YQZZ1GFC"
 };
 
-// Inicializar Firebase
-if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+// 1. INICIALIZAR FIREBASE
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 const db = firebase.firestore();
 
 let products = [];
 let cart = JSON.parse(localStorage.getItem('textil_cart')) || [];
-let showTax = false;
 
-// --- INICIO ---
+// 2. FUNCIÓN DE ARRANQUE (Trae tus 123 productos)
 function init() {
+    console.log("Conectando con la base de datos...");
     db.collection("products").onSnapshot((snapshot) => {
-        products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderProducts(products);
-        renderCart();
+        products = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        console.log("Productos cargados:", products.length);
+        renderCatalog(products);
+        updateCartTotal();
+    }, (error) => {
+        console.error("Error en Firebase:", error);
     });
-    setupEventListeners();
+
+    // Configurar cierre de ventanas (Modales)
+    document.querySelectorAll('.close-modal').forEach(btn => {
+        btn.onclick = () => document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+    });
 }
 
-// --- RENDERIZADO DE CATÁLOGO ---
-function renderProducts(items) {
+// 3. RENDERIZAR PRODUCTOS EN PANTALLA
+function renderCatalog(items) {
     const list = document.getElementById('productList');
     if (!list) return;
     list.innerHTML = items.map(p => `
-        <div class="product-card" data-id="${p.id}">
-            <div class="product-image" style="background-image: url('${p.image}'); height:180px; background-size:cover; background-position:center;"></div>
-            <div class="product-info">
-                <h3>${p.name}</h3>
-                <p><strong>${(p.price || 0).toFixed(2)}€</strong> | Stock: ${p.stock}</p>
+        <div class="product-card">
+            <div class="product-image" style="background-image: url('${p.image || ''}'); height:180px; background-size:cover; background-position:center; border-radius:8px;">
+            </div>
+            <div class="product-info" style="padding:10px;">
+                <h3 style="margin:5px 0;">${p.name}</h3>
+                <p style="font-weight:bold; color:#6366f1;">${(p.price || 0).toFixed(2)}€</p>
                 <div style="display:flex; gap:5px; margin-top:10px;">
-                    <button class="btn btn-add" onclick="window.addToCart('${p.id}')">Añadir</button>
-                    <button class="btn btn-secondary" onclick="window.openEdit('${p.id}')"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-3d" onclick="window.view3D('${p.id}')"><i class="fas fa-cube"></i></button>
+                    <button class="btn btn-primary" onclick="window.addToCart('${p.id}')" style="flex:1; cursor:pointer;">Añadir</button>
+                    <button class="btn btn-secondary" onclick="window.view3D('${p.id}')" style="cursor:pointer;"><i class="fas fa-cube"></i></button>
+                    <button class="btn btn-secondary" onclick="window.openEdit('${p.id}')" style="cursor:pointer;"><i class="fas fa-pen"></i></button>
                 </div>
             </div>
         </div>
     `).join('');
 }
 
-// --- VISOR 3D ---
+// 4. VISOR 3D
 window.view3D = (id) => {
     const p = products.find(prod => prod.id === id);
     if (p && p.image) {
@@ -61,42 +74,42 @@ window.view3D = (id) => {
     }
 };
 
-// --- CALCULADORA ---
-let calcVal = "";
-window.calcNum = (n) => { calcVal += n; document.getElementById('calcDisplay').value = calcVal; };
-window.calcOp = (o) => { calcVal += o; document.getElementById('calcDisplay').value = calcVal; };
-window.calcClear = () => { calcVal = ""; document.getElementById('calcDisplay').value = ""; };
-window.calcEqual = () => { try { calcVal = eval(calcVal).toString(); document.getElementById('calcDisplay').value = calcVal; } catch { calcVal = "Error"; } };
-
-// --- GESTIÓN DE CARRITO ---
-window.addToCart = (id) => {
-    const p = products.find(prod => prod.id === id);
-    if (p) { cart.push({...p, cartId: Date.now()}); saveCart(); }
+// 5. CALCULADORA
+let calcString = "";
+window.calcNum = (n) => { calcString += n; document.getElementById('calcDisplay').value = calcString; };
+window.calcOp = (op) => { calcString += op; document.getElementById('calcDisplay').value = calcString; };
+window.calcClear = () => { calcString = ""; document.getElementById('calcDisplay').value = ""; };
+window.calcEqual = () => { 
+    try { 
+        calcString = eval(calcString).toString(); 
+        document.getElementById('calcDisplay').value = calcString; 
+    } catch { 
+        document.getElementById('calcDisplay').value = "Error"; 
+        calcString = "";
+    } 
 };
 
-function renderCart() {
-    const c = document.getElementById('cartItems');
-    if (!c) return;
-    c.innerHTML = cart.map((item, i) => `
-        <div class="cart-item">
-            <span>${item.name}</span>
-            <span>${item.price.toFixed(2)}€</span>
-            <button onclick="window.removeItem(${i})">×</button>
-        </div>
-    `).join('');
-    updateTotals();
+// 6. CARRITO
+window.addToCart = (id) => {
+    const p = products.find(prod => prod.id === id);
+    if (p) {
+        cart.push(p);
+        saveCart();
+    }
+};
+
+function updateCartTotal() {
+    const total = cart.reduce((sum, item) => sum + (item.price || 0), 0);
+    const el = document.getElementById('totalAmount');
+    if (el) el.innerText = total.toFixed(2) + "€";
 }
 
-function updateTotals() {
-    let subtotal = cart.reduce((s, i) => s + i.price, 0);
-    let tax = subtotal * 0.21;
-    document.getElementById('totalAmount').innerText = (showTax ? subtotal + tax : subtotal).toFixed(2) + "€";
+function saveCart() { 
+    localStorage.setItem('textil_cart', JSON.stringify(cart)); 
+    updateCartTotal(); 
 }
 
-window.removeItem = (i) => { cart.splice(i, 1); saveCart(); };
-function saveCart() { localStorage.setItem('textil_cart', JSON.stringify(cart)); renderCart(); }
-
-// --- MODAL DE EDICIÓN ---
+// 7. EDITAR PRODUCTO
 window.openEdit = (id) => {
     const p = products.find(prod => prod.id === id);
     if (p) {
@@ -109,22 +122,5 @@ window.openEdit = (id) => {
     }
 };
 
-async function handleProductSubmit(e) {
-    e.preventDefault();
-    const id = document.getElementById('productId').value;
-    const data = {
-        name: document.getElementById('productName').value,
-        price: parseFloat(document.getElementById('productPrice').value),
-        stock: parseInt(document.getElementById('productStock').value),
-        image: document.getElementById('productImage').value
-    };
-    await db.collection("products").doc(id).set(data, { merge: true });
-    document.getElementById('productModal').classList.add('hidden');
-}
-
-function setupEventListeners() {
-    document.getElementById('productForm')?.addEventListener('submit', handleProductSubmit);
-    document.querySelectorAll('.close-modal').forEach(b => b.onclick = () => document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')));
-}
-
+// ARRANQUE TOTAL
 window.onload = init;
