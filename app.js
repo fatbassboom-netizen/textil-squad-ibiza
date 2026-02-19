@@ -1,5 +1,4 @@
-// --- DATA ---
-// MANTENEMOS TUS FOTOS EXACTAMENTE IGUAL
+// --- DATA COMPLETA (RECUPERADA) ---
 const initialProducts = [
     { id: "1", name: "Sábana", price: 8.00, stock: 100, image: "" },
     { id: "2", name: "Nórdico Blanco", price: 23.00, stock: 50, image: "" },
@@ -33,12 +32,11 @@ const initialProducts = [
     { id: "123", name: "Vestido OC", price: 0.00, stock: 50, image: "assets/vestido.jpg" }
 ];
 
-let products = [];
+// --- APP STATE ---
+let products = [...initialProducts];
 const state = { cart: [], showTax: false, notes: "", sortBy: "date-desc" };
-let db = null;
-let productsUnsubscribe = null;
-const FB_CONFIG_KEY = 'firebase_config_v1';
 
+// --- FIREBASE CONFIG ---
 const DEFAULT_FB_CONFIG = {
     apiKey: "AIzaSyCtwuhg7bINy4_FUTUwdXux3Z3tEWeAgRo",
     authDomain: "textilsquadibiza.firebaseapp.com",
@@ -49,130 +47,103 @@ const DEFAULT_FB_CONFIG = {
     measurementId: "G-V5YQZZ1GFC"
 };
 
-// --- ELEMENTOS DOM ---
-let productListEl, cartItemsEl, subtotalEl, taxRowEl, taxEl, totalEl, itemCountEl, orderNotesEl, searchInput, sortSelect;
-let productModal, productForm, firebaseModal, firebaseForm, photoModal, photoFull, calcModal, calcDisplay, product3DObject, faceFront, faceBack, view3DTitle;
+let db = null;
 
+// --- INITIALIZATION ---
 async function init() {
-    try {
-        productListEl = document.getElementById('productList');
-        cartItemsEl = document.getElementById('cartItems');
-        subtotalEl = document.getElementById('subtotalAmount');
-        taxRowEl = document.getElementById('taxRow');
-        taxEl = document.getElementById('taxAmount');
-        totalEl = document.getElementById('totalAmount');
-        itemCountEl = document.getElementById('itemCount');
-        orderNotesEl = document.getElementById('orderNotes');
-        searchInput = document.getElementById('searchInput');
-        sortSelect = document.getElementById('sortSelect');
-        productModal = document.getElementById('productModal');
-        productForm = document.getElementById('productForm');
-        firebaseModal = document.getElementById('firebaseModal');
-        firebaseForm = document.getElementById('firebaseForm');
-        photoModal = document.getElementById('photoModal');
-        photoFull = document.getElementById('photoFull');
-        calcModal = document.getElementById('calcModal');
-        calcDisplay = document.getElementById('calcDisplay');
-        product3DObject = document.getElementById('product3DObject');
-        faceFront = document.getElementById('faceFront');
-        faceBack = document.getElementById('faceBack');
-        view3DTitle = document.getElementById('view3DTitle');
-
-        loadProducts();
-        loadState();
-        if(orderNotesEl) orderNotesEl.value = state.notes;
-        
-        setupEventListeners();
-        renderProducts(products);
-        renderCart();
-        await initFirebase();
-    } catch (e) { console.error("Error init:", e); }
+    console.log("🚀 Aplicación Textil Squad Reiniciada");
+    loadLocalData();
+    setupListeners();
+    renderProducts(products);
+    renderCart();
+    await initFirebase();
 }
 
-function setupEventListeners() {
-    document.getElementById('toggleTaxBtn')?.addEventListener('click', toggleTax);
-    document.getElementById('clearCartBtn')?.addEventListener('click', clearCart);
+function setupListeners() {
+    document.getElementById('searchInput')?.addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        const filtered = products.filter(p => p.name.toLowerCase().includes(term));
+        renderProducts(filtered);
+    });
+
     document.getElementById('checkoutBtn')?.addEventListener('click', handleCheckout);
-    orderNotesEl?.addEventListener('input', (e) => { state.notes = e.target.value; saveState(); });
-    searchInput?.addEventListener('input', applyFiltersAndSort);
-    sortSelect?.addEventListener('change', (e) => { state.sortBy = e.target.value; saveState(); applyFiltersAndSort(); });
-    document.getElementById('manageProductsBtn')?.addEventListener('click', () => openModal());
-    document.getElementById('configFirebaseBtn')?.addEventListener('click', () => { firebaseModal.classList.remove('hidden'); fillFirebaseForm(); });
-    document.querySelectorAll('.close-modal').forEach(btn => btn.addEventListener('click', closeModal));
-    document.getElementById('saveProgressBtn')?.addEventListener('click', () => { saveState(); alert("¡Progreso guardado!"); });
-    document.getElementById('printOrderBtn')?.addEventListener('click', () => window.print());
-    document.getElementById('openCalcBtn')?.addEventListener('click', () => calcModal.classList.remove('hidden'));
-    document.getElementById('deleteProductBtn')?.addEventListener('click', handleDeleteProduct);
-}
-
-// --- LOGICA DE PRODUCTOS Y RENDER ---
-function renderProducts(items) {
-    if (!productListEl) return;
-    productListEl.innerHTML = items.map(product => {
-        const pId = String(product.id);
-        return `
-        <div class="product-card" data-id="${pId}">
-            <div class="product-image" style="background-image: url('${product.image}'); background-size: cover; height:150px;"></div>
-            <div class="product-info">
-                <h3>${product.name}</h3>
-                <p>${(product.price || 0).toFixed(2)}€ | Stock: ${product.stock}</p>
-                <input type="text" class="catalog-note-input" placeholder="Nota...">
-                <div style="display: flex; gap: 5px; margin-top:10px;">
-                    <button class="btn btn-add" onclick="window.addToCart('${pId}')">Añadir</button>
-                    <button class="btn btn-secondary" onclick="window.openEdit('${pId}')"><i class="fas fa-pen"></i></button>
-                    <button class="btn btn-3d" onclick="window.view3D('${pId}')"><i class="fas fa-cube"></i></button>
-                </div>
-            </div>
-        </div>`;
-    }).join('');
-}
-
-function renderCart() {
-    if (!cartItemsEl) return;
-    cartItemsEl.innerHTML = state.cart.map(item => `
-        <div class="cart-item">
-            <span>${item.name} (${item.quantity})</span>
-            <button onclick="window.updateQuantity(${item.cartItemId}, -1)">-</button>
-            <button onclick="window.updateQuantity(${item.cartItemId}, 1)">+</button>
-        </div>`).join('');
-    
-    const subtotal = state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    if(subtotalEl) subtotalEl.textContent = `${subtotal.toFixed(2)}€`;
-    if(totalEl) totalEl.textContent = `${(state.showTax ? subtotal * 1.21 : subtotal).toFixed(2)}€`;
-}
-
-// --- FIREBASE & STORAGE ---
-async function initFirebase() {
-    if (typeof firebase === 'undefined') return;
-    try {
-        const config = getFirebaseConfig();
-        if (!firebase.apps.length) firebase.initializeApp(config);
-        db = firebase.firestore();
-        subscribeToProducts();
-    } catch (e) { console.error("FB Error:", e); }
-}
-
-function subscribeToProducts() {
-    if (!db) return;
-    db.collection("products").onSnapshot(snapshot => {
-        const cloudProducts = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        if(cloudProducts.length > 0) {
-            products = cloudProducts;
-            saveProducts();
-            renderProducts(products);
-        }
+    document.getElementById('clearCartBtn')?.addEventListener('click', () => {
+        if(confirm("¿Vaciar carrito?")) { state.cart = []; renderCart(); saveLocalData(); }
     });
 }
 
-function loadProducts() {
-    const saved = localStorage.getItem('local_products_v1');
-    products = saved ? JSON.parse(saved) : [...initialProducts];
+async function initFirebase() {
+    if (typeof firebase !== 'undefined') {
+        if (!firebase.apps.length) firebase.initializeApp(DEFAULT_FB_CONFIG);
+        db = firebase.firestore();
+        db.collection("products").onSnapshot(snapshot => {
+            const cloudData = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
+            if (cloudData.length > 0) {
+                products = cloudData;
+                renderProducts(products);
+                saveLocalData();
+            }
+        });
+    }
 }
-function saveProducts() { localStorage.setItem('local_products_v1', JSON.stringify(products)); }
-function loadState() { const saved = localStorage.getItem('orderState'); if(saved) Object.assign(state, JSON.parse(saved)); }
-function saveState() { localStorage.setItem('orderState', JSON.stringify(state)); }
 
-// --- FUNCIONES GLOBALES ---
+// --- RENDER ---
+function renderProducts(items) {
+    const listEl = document.getElementById('productList');
+    if (!listEl) return;
+    listEl.innerHTML = items.map(p => `
+        <div class="product-card">
+            <div class="product-image" style="background-image: url('${p.image}'); height:150px; background-size:cover; background-position:center;"></div>
+            <div class="product-info">
+                <h3>${p.name}</h3>
+                <p>${p.price.toFixed(2)}€ | Stock: ${p.stock}</p>
+                <button class="btn btn-add" onclick="addToCart('${p.id}')">Añadir</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderCart() {
+    const cartEl = document.getElementById('cartItems');
+    if (!cartEl) return;
+    cartEl.innerHTML = state.cart.map(item => `
+        <div class="cart-item">
+            <span>${item.name} x${item.quantity}</span>
+        </div>
+    `).join('');
+    
+    const subtotal = state.cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+    document.getElementById('totalAmount').textContent = `${subtotal.toFixed(2)}€`;
+}
+
+// --- ACCIONES ---
 window.addToCart = (id) => {
-    const p = products.find(prod => String(prod.id) === id);
-    if(p)
+    const p = products.find(prod => String(prod.id) === String(id));
+    if (p) {
+        const inCart = state.cart.find(i => String(i.id) === String(id));
+        if (inCart) inCart.quantity++;
+        else state.cart.push({...p, quantity: 1});
+        renderCart();
+        saveLocalData();
+    }
+};
+
+async function handleCheckout() {
+    if (state.cart.length === 0) return;
+    alert("Pedido procesado (Modo Cloud)");
+    state.cart = [];
+    renderCart();
+    saveLocalData();
+}
+
+function saveLocalData() {
+    localStorage.setItem('local_products_v1', JSON.stringify(products));
+    localStorage.setItem('orderState', JSON.stringify(state));
+}
+
+function loadLocalData() {
+    const saved = localStorage.getItem('local_products_v1');
+    if (saved) products = JSON.parse(saved);
+}
+
+window.onload = init;
